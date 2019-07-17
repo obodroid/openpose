@@ -116,9 +116,8 @@ distribute/
 ######################### Compilation (build, distribute & bins) Files / Folders #########################
 *.bin
 *.testbin
-build
-build*
-.build*
+build/*
+!build/.gitkeep
 *cmake_build
 distribute/*
 python/caffe/proto/
