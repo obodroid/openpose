@@ -21,7 +21,7 @@ import ptvsd
 import os
 import sys
 fileDir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(fileDir, ".."))
+sys.path.append(os.path.join(fileDir, "../build/python"))
 
 import txaio
 txaio.use_twisted()
@@ -43,6 +43,8 @@ from PIL import Image
 import numpy as np
 import base64
 import time
+
+from openpose import pyopenpose as op
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=9000,
@@ -70,6 +72,19 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
             imgData = base64.b64decode(dataURL[len(head):])
             buffer = io.BytesIO(imgData)
             imgPIL = Image.open(buffer)
+            img = np.array(imgPIL.convert('RGB'))
+
+            params = dict()
+            params["model_folder"] = "../models/"
+
+            opWrapper = op.WrapperPython()
+            opWrapper.configure(params)
+            opWrapper.start()
+
+            datum = op.Datum()
+            datum.cvInputData = img
+            opWrapper.emplaceAndPop([datum])
+            print("Body keypoints: \n" + str(datum.poseKeypoints))
 
     def onClose(self, wasClean, code, reason):
         print("WebSocket connection closed: {0}".format(reason))
