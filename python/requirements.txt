@@ -1,0 +1,4 @@
+autobahn == 18.12.1
+twisted == 19.2.1
+pyOpenSSL >= 17.0.0
+ptvsd == 3.0.0
