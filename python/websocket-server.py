@@ -34,6 +34,16 @@ from twisted.internet.ssl import DefaultOpenSSLContextFactory
 from twisted.python import log
 
 import argparse
+import cv2
+import imagehash
+import json
+import io
+from io import BytesIO
+from PIL import Image
+import numpy as np
+import base64
+import time
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=9000,
                     help='WebSocket Port')
@@ -52,6 +62,14 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
     def onMessage(self, payload, isBinary):
         raw = payload.decode('utf8')
         msg = json.loads(raw)
+
+        if msg['type'] == "FRAME":
+            dataURL = msg['dataURL']
+            head = "data:image/jpeg;base64,"
+            assert(dataURL.startswith(head))
+            imgData = base64.b64decode(dataURL[len(head):])
+            buffer = io.BytesIO(imgData)
+            imgPIL = Image.open(buffer)
 
     def onClose(self, wasClean, code, reason):
         print("WebSocket connection closed: {0}".format(reason))
