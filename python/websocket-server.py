@@ -56,6 +56,8 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
 
         params = dict()
         params["model_folder"] = "../models/"
+        params["num_gpu"] = 1
+        params["num_gpu_start"] = 3
 
         self.opWrapper = op.WrapperPython()
         self.opWrapper.configure(params)
