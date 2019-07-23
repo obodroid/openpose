@@ -21,7 +21,7 @@ import ptvsd
 import os
 import sys
 fileDir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(fileDir, "../build/python"))
+sys.path.insert(0, os.path.join(fileDir, "../build/python"))
 
 import txaio
 txaio.use_twisted()
