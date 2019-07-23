@@ -42,8 +42,7 @@ from io import BytesIO
 from PIL import Image
 import numpy as np
 import base64
-import time
-
+from datetime import datetime
 from openpose import pyopenpose as op
 
 parser = argparse.ArgumentParser()
@@ -54,6 +53,13 @@ args = parser.parse_args()
 class OpenPoseServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         super(OpenPoseServerProtocol, self).__init__()
+
+        params = dict()
+        params["model_folder"] = "../models/"
+
+        self.opWrapper = op.WrapperPython()
+        self.opWrapper.configure(params)
+        self.opWrapper.start()
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
@@ -67,6 +73,25 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
 
         if msg['type'] == "FRAME":
             dataURL = msg['dataURL']
+
+            if "keyframe" in msg:
+                keyframe = msg['keyframe']
+            else:
+                keyframe = start
+
+            if "robotId" in msg:
+                robotId = msg['robotId']
+            else:
+                robotId = ""
+
+            if "videoId" in msg:
+                videoId = msg['videoId']
+            else:
+                videoId = ""
+
+            video_serial = robotId + "-" + videoId
+            print("FRAME - {}".format(video_serial))
+
             head = "data:image/jpeg;base64,"
             assert(dataURL.startswith(head))
             imgData = base64.b64decode(dataURL[len(head):])
@@ -74,20 +99,26 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
             imgPIL = Image.open(buffer)
             img = np.array(imgPIL.convert('RGB'))
 
-            params = dict()
-            params["model_folder"] = "../models/"
+            self.datum = op.Datum()
+            self.datum.cvInputData = img
+            self.opWrapper.emplaceAndPop([self.datum])
+            
+            msg = {
+                "type": "BODY_POSE",
+                "robotId": robotId,
+                "videoId": videoId,
+                "keyframe": keyframe,
+                "poseKeypoints": self.datum.poseKeypoints.tolist(),
+                "time": datetime.now().isoformat(),
+            }
 
-            opWrapper = op.WrapperPython()
-            opWrapper.configure(params)
-            opWrapper.start()
-
-            datum = op.Datum()
-            datum.cvInputData = img
-            opWrapper.emplaceAndPop([datum])
-            print("Body keypoints: \n" + str(datum.poseKeypoints))
+            self.pushMessage(msg)
 
     def onClose(self, wasClean, code, reason):
         print("WebSocket connection closed: {0}".format(reason))
+
+    def pushMessage(self, msg):
+        reactor.callFromThread(self.sendMessage, json.dumps(msg).encode(), sync=True)
 
 
 def main(reactor):
