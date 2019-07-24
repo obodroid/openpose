@@ -21,6 +21,7 @@ import ptvsd
 import os
 import sys
 fileDir = os.path.dirname(os.path.realpath(__file__))
+imgPath = os.path.join(fileDir, '../..', 'data')
 sys.path.insert(0, os.path.join(fileDir, "../build/python"))
 
 import txaio
@@ -48,6 +49,8 @@ from openpose import pyopenpose as op
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=9000,
                     help='WebSocket Port')
+parser.add_argument('--saveImg', help="Save image for debugging purpose",
+                    action="store_true")
 args = parser.parse_args()
 
 class OpenPoseServerProtocol(WebSocketServerProtocol):
@@ -62,6 +65,8 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
         self.opWrapper = op.WrapperPython()
         self.opWrapper.configure(params)
         self.opWrapper.start()
+
+        self.cnt = 1
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
@@ -100,6 +105,10 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
             buffer = io.BytesIO(imgData)
             imgPIL = Image.open(buffer)
             img = np.array(imgPIL.convert('RGB'))
+
+            if args.saveImg:
+                imgPIL.save(os.path.join(imgPath, 'input_{}.jpg'.format(self.cnt)))
+                self.cnt += 1
 
             self.datum = op.Datum()
             self.datum.cvInputData = img
