@@ -113,6 +113,9 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
             self.datum = op.Datum()
             self.datum.cvInputData = img
             self.opWrapper.emplaceAndPop([self.datum])
+
+            _, jpgImage = cv2.imencode('.jpg', img)
+            base64Image = base64.b64encode(jpgImage)
             
             msg = {
                 "type": "BODY_POSE",
@@ -120,6 +123,7 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
                 "videoId": videoId,
                 "keyframe": keyframe,
                 "poseKeypoints": self.datum.poseKeypoints.tolist(),
+                "content": base64Image,
                 "time": datetime.now().isoformat(),
             }
 
