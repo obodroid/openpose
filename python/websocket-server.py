@@ -96,6 +96,11 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
             else:
                 videoId = ""
 
+            if "bbox" in msg:
+                bbox = msg['bbox']
+            else:
+                bbox = None
+
             video_serial = robotId + "-" + videoId
             print("FRAME - {}".format(video_serial))
 
@@ -125,6 +130,7 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
                     "videoId": videoId,
                     "keyframe": keyframe,
                     "poseKeypoints": self.datum.poseKeypoints.tolist(),
+                    "bbox": bbox,
                     "content": content,
                     "time": datetime.now().isoformat(),
                 }
