@@ -96,6 +96,11 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
             else:
                 videoId = ""
 
+            if "frame" in msg:
+                frame = msg['frame']
+            else:
+                frame = None
+
             if "bbox" in msg:
                 bbox = msg['bbox']
             else:
@@ -131,6 +136,7 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
                     "keyframe": keyframe,
                     "poseKeypoints": self.datum.poseKeypoints.tolist(),
                     "bbox": bbox,
+                    "frame": frame,
                     "content": content,
                     "time": datetime.now().isoformat(),
                 }
