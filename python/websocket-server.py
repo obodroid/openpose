@@ -116,6 +116,12 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
             imgPIL = Image.open(buffer)
             img = np.array(imgPIL.convert('RGB'))
 
+            scale_percent = 0.5
+            width = int(img.shape[1] * scale_percent)
+            height = int(img.shape[0] * scale_percent)
+            dim = (width, height)
+            img = cv2.resize(img, dim)
+
             if args.saveImg:
                 imgPIL.save(os.path.join(imgPath, 'input_{}.jpg'.format(self.cnt)))
                 self.cnt += 1
@@ -129,12 +135,14 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
                 base64Image = base64.b64encode(jpgImage)
                 content = "data:image/jpeg;base64," + str(base64Image.decode())
 
+                poseKeypoints = [[[i / scale_percent for i in j] for j in k] for k in self.datum.poseKeypoints.tolist()]
+
                 msg = {
                     "type": "BODY_POSE",
                     "robotId": robotId,
                     "videoId": videoId,
                     "keyframe": keyframe,
-                    "poseKeypoints": self.datum.poseKeypoints.tolist(),
+                    "poseKeypoints": poseKeypoints,
                     "bbox": bbox,
                     "frame": frame,
                     "content": content,
