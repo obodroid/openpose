@@ -51,6 +51,8 @@ parser.add_argument('--port', type=int, default=9000,
                     help='WebSocket Port')
 parser.add_argument('--saveImg', help="Save image for debugging purpose",
                     action="store_true")
+parser.add_argument('--resizeImg', help="Save image for debugging purpose",
+                    action="store_true")
 args = parser.parse_args()
 
 class OpenPoseServerProtocol(WebSocketServerProtocol):
@@ -116,15 +118,16 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
             imgPIL = Image.open(buffer)
             img = np.array(imgPIL.convert('RGB'))
 
-            scale_percent = 0.5
-            width = int(img.shape[1] * scale_percent)
-            height = int(img.shape[0] * scale_percent)
-            dim = (width, height)
-            img = cv2.resize(img, dim)
-
             if args.saveImg:
                 imgPIL.save(os.path.join(imgPath, 'input_{}.jpg'.format(self.cnt)))
                 self.cnt += 1
+
+            if args.resizeImg:
+                scale_percent = 0.5
+                width = int(img.shape[1] * scale_percent)
+                height = int(img.shape[0] * scale_percent)
+                dim = (width, height)
+                img = cv2.resize(img, dim)
 
             self.datum = op.Datum()
             self.datum.cvInputData = img
@@ -135,7 +138,10 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
                 base64Image = base64.b64encode(jpgImage)
                 content = "data:image/jpeg;base64," + str(base64Image.decode())
 
-                poseKeypoints = [[[i / scale_percent for i in j] for j in k] for k in self.datum.poseKeypoints.tolist()]
+                if args.resizeImg:
+                    poseKeypoints = [[[i / scale_percent for i in j] for j in k] for k in self.datum.poseKeypoints.tolist()]
+                else:
+                    poseKeypoints = self.datum.poseKeypoints.tolist()
 
                 msg = {
                     "type": "BODY_POSE",
