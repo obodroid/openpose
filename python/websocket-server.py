@@ -45,6 +45,7 @@ import numpy as np
 import base64
 from datetime import datetime
 from openpose import pyopenpose as op
+opWrapper = op.WrapperPython()
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=9000,
@@ -64,7 +65,7 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
         params["num_gpu"] = 1
         params["num_gpu_start"] = 3
 
-        self.opWrapper = op.WrapperPython()
+        self.opWrapper = opWrapper
         self.opWrapper.configure(params)
         self.opWrapper.start()
 
