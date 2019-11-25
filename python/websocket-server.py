@@ -64,6 +64,7 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
         params["model_folder"] = "../models/"
         params["num_gpu"] = 1
         params["num_gpu_start"] = 3
+        params["hand"] = True
 
         self.opWrapper = opWrapper
         self.opWrapper.configure(params)
@@ -83,11 +84,12 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
 
         if msg['type'] == "FRAME":
             dataURL = msg['dataURL']
+            self.cnt += 1
 
             if "keyframe" in msg:
                 keyframe = msg['keyframe']
             else:
-                keyframe = start
+                keyframe = self.cnt
 
             if "robotId" in msg:
                 robotId = msg['robotId']
@@ -117,11 +119,10 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
             imgData = base64.b64decode(dataURL[len(head):])
             buffer = io.BytesIO(imgData)
             imgPIL = Image.open(buffer)
-            img = np.array(imgPIL.convert('RGB'))
+            img = cv2.cvtColor(np.array(imgPIL.convert('RGB')), cv2.COLOR_RGB2BGR)
 
             if args.saveImg:
                 imgPIL.save(os.path.join(imgPath, 'input_{}.jpg'.format(self.cnt)))
-                self.cnt += 1
 
             if args.resizeImg:
                 scale_percent = 0.5
@@ -135,7 +136,7 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
             self.opWrapper.emplaceAndPop([self.datum])
 
             if isinstance(self.datum.poseKeypoints.tolist(), list):
-                _, jpgImage = cv2.imencode('.jpg', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+                _, jpgImage = cv2.imencode('.jpg', img)
                 base64Image = base64.b64encode(jpgImage)
                 content = "data:image/jpeg;base64," + str(base64Image.decode())
 
@@ -150,6 +151,8 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
                     "videoId": videoId,
                     "keyframe": keyframe,
                     "poseKeypoints": poseKeypoints,
+                    "leftHandKeypoints": self.datum.handKeypoints[0].tolist(),
+                    "rightHandKeypoints": self.datum.handKeypoints[1].tolist(),
                     "bbox": bbox,
                     "frame": frame,
                     "content": content,
