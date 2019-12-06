@@ -24,6 +24,8 @@ fileDir = os.path.dirname(os.path.realpath(__file__))
 imgPath = os.path.join(fileDir, '../..', 'data')
 sys.path.insert(0, os.path.join(fileDir, "../build/python"))
 
+import queue
+import threading
 import txaio
 txaio.use_twisted()
 
@@ -43,6 +45,7 @@ from io import BytesIO
 from PIL import Image
 import numpy as np
 import base64
+import time
 from datetime import datetime
 from openpose import pyopenpose as op
 opWrapper = op.WrapperPython()
@@ -70,19 +73,29 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
         self.opWrapper.configure(params)
         self.opWrapper.start()
 
+        self.detectQueue = queue.Queue(maxsize=10)
+        self.detectWorker = threading.Thread(target=self.consume)
+        self.detectWorker.setDaemon(True)
+        self.detectWorker.start()
+
         self.cnt = 1
 
-    def onConnect(self, request):
-        print("Client connecting: {0}".format(request.peer))
+    def qput(self, msg, callback):
+        print("detectQueue qsize: {}".format(self.detectQueue.qsize()))
+        if self.detectQueue.full():
+            self.detectQueue.get()
+        self.detectQueue.put([msg, callback])
 
-    def onOpen(self):
-        print("WebSocket connection open.")
+    def consume(self):
+        while True:
+            if not self.detectQueue.empty():
+                msg, callback = self.detectQueue.get()
+                self.processFrame(msg, callback)
+            time.sleep(0.001)
 
-    def onMessage(self, payload, isBinary):
-        raw = payload.decode('utf8')
-        msg = json.loads(raw)
-
-        if msg['type'] == "FRAME":
+    def processFrame(self, msg, callback):
+        try:
+            start = time.time()
             dataURL = msg['dataURL']
             self.cnt += 1
 
@@ -135,6 +148,9 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
             self.datum.cvInputData = img
             self.opWrapper.emplaceAndPop([self.datum])
 
+            print("Finished processing frame {} for {} seconds.".format(
+                keyframe, time.time() - start))
+
             if isinstance(self.datum.poseKeypoints.tolist(), list):
                 _, jpgImage = cv2.imencode('.jpg', img)
                 base64Image = base64.b64encode(jpgImage)
@@ -159,7 +175,23 @@ class OpenPoseServerProtocol(WebSocketServerProtocol):
                     "time": datetime.now().isoformat(),
                 }
 
-                self.pushMessage(msg)
+                callback(msg)
+
+        except:
+            print(traceback.format_exc())
+
+    def onConnect(self, request):
+        print("Client connecting: {0}".format(request.peer))
+
+    def onOpen(self):
+        print("WebSocket connection open.")
+
+    def onMessage(self, payload, isBinary):
+        raw = payload.decode('utf8')
+        msg = json.loads(raw)
+
+        if msg['type'] == "FRAME":
+            self.qput(msg, self.pushMessage)
 
     def onClose(self, wasClean, code, reason):
         print("WebSocket connection closed: {0}".format(reason))
